@@ -1,0 +1,189 @@
+====================================================================
+DRF User Auth Example - Endpoints (datos ficticios/de ejemplo, no reales)
+URL base: http://127.0.0.1:8000
+====================================================================
+
+--------------------------------------------------------------------
+1) REGISTRO DE PROVIDER (SIGNUP)
+--------------------------------------------------------------------
+Método: POST
+URL: http://127.0.0.1:8000/v1/affiliate/providers/signup/
+Auth: ninguna (público)
+Headers:
+  Content-Type: application/json
+
+Cuerpo:
+{
+    "email": "dummy.provider@example.com",
+    "password": "3243434",
+    "provider": {
+        "company": "3444",
+        "fullname": "JOHN A SMITH",
+        "id_type": 1,
+        "id_number": "3434",
+        "rnt": "343434",
+        "address": "123 MAIN ST",
+        "phone": "5555550123"
+    }
+}
+
+Respuesta exitosa (201 Created):
+{
+    "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "message": "User registered successfully"
+}
+
+Errores:
+  400 - {"error": "There is already a registered user with this email"}
+  400 - {"error": "..."}  (error de validación)
+
+--------------------------------------------------------------------
+2) VERIFICAR CORREO
+--------------------------------------------------------------------
+Método: GET
+URL: http://127.0.0.1:8000/v1/auth/email-verify/<access_token_from_signup>/
+Auth: ninguna (público, el token viene de la respuesta del signup)
+
+Respuesta exitosa (200 OK):
+{"success": "User Successfully activated"}
+o
+{"success": "User has been previously activated"}
+
+Errores:
+  400 - {"error": "Activation Expired"}
+  400 - {"error": "Invalid"}
+
+--------------------------------------------------------------------
+3) LOGIN
+--------------------------------------------------------------------
+Método: POST
+URL: http://127.0.0.1:8000/v1/auth/login/
+Auth: ninguna (público)
+Headers:
+  Content-Type: application/json
+
+Cuerpo:
+{
+    "email": "dummy.provider@example.com",
+    "password": "3243434"
+}
+
+Respuesta exitosa (200 OK):
+{
+    "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "message": "User login  successfully"
+}
+
+Claims del access token decodificado:
+{
+    "role": "user",
+    "email": "dummy.provider@example.com",
+    "initials": "JA"
+}
+
+Errores:
+  401 - email/password incorrectos
+  403 - {"detail": "Email is not verified"}
+
+--------------------------------------------------------------------
+4) LISTAR PROVIDERS
+--------------------------------------------------------------------
+Método: GET
+URL: http://127.0.0.1:8000/v1/affiliate/providers/
+Auth: requerida (Bearer access token, el usuario debe estar verificado)
+Headers:
+  Authorization: Bearer <access_token_from_login>
+
+Parámetros de consulta opcionales:
+  ?company=3444
+  ?page=1
+  ?page_size=15
+
+Respuesta exitosa (200 OK):
+{
+    "count": 1,
+    "total_pages": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "6ab07505-975f-4d45-9293-11f8971fb1c7",
+            "company": "3444",
+            "fullname": "JOHN A SMITH",
+            "id_type": 1,
+            "id_number": "3434",
+            "rnt": "343434",
+            "address": "123 MAIN ST",
+            "phone": "5555550123"
+        }
+    ]
+}
+
+Errores:
+  401 - token ausente/inválido/expirado
+  403 - autenticado pero no verificado
+
+--------------------------------------------------------------------
+5) OBTENER DETALLE DE PROVIDER
+--------------------------------------------------------------------
+Método: GET
+URL: http://127.0.0.1:8000/v1/affiliate/providers/6ab07505-975f-4d45-9293-11f8971fb1c7/
+Auth: requerida (Bearer access token, el usuario debe estar verificado)
+Headers:
+  Authorization: Bearer <access_token_from_login>
+
+Respuesta exitosa (200 OK):
+{
+    "id": "6ab07505-975f-4d45-9293-11f8971fb1c7",
+    "company": "3444",
+    "fullname": "JOHN A SMITH",
+    "id_type": 1,
+    "id_number": "3434",
+    "rnt": "343434",
+    "address": "123 MAIN ST",
+    "phone": "5555550123"
+}
+
+Errores:
+  404 - {"error": "Not found"}
+  403 - no es tu provider y no eres superusuario
+
+--------------------------------------------------------------------
+6) ACTUALIZAR DETALLE DE PROVIDER
+--------------------------------------------------------------------
+Método: PUT
+URL: http://127.0.0.1:8000/v1/affiliate/providers/6ab07505-975f-4d45-9293-11f8971fb1c7/
+Auth: requerida (Bearer access token, el usuario debe estar verificado)
+Headers:
+  Authorization: Bearer <access_token_from_login>
+  Content-Type: application/json
+
+Cuerpo (se requiere el payload completo):
+{
+    "company": "3444",
+    "fullname": "JOHN A SMITH",
+    "id_type": 1,
+    "id_number": "3434",
+    "rnt": "343434",
+    "address": "NEW ADDRESS 123",
+    "phone": "5555550123"
+}
+
+Respuesta exitosa (200 OK): objeto provider actualizado (misma forma que el GET de detalle)
+
+Errores:
+  404 - {"error": "Not found"}
+  403 - no es tu provider y no eres superusuario
+  400 - errores de validación
+
+====================================================================
+FLUJO COMPLETO (en orden)
+====================================================================
+1. POST /v1/affiliate/providers/signup/   -> crea User + Provider, envía correo de verificación
+2. GET  /v1/auth/email-verify/<token>/    -> marca al usuario como verificado
+3. POST /v1/auth/login/                   -> devuelve access + refresh JWT
+4. GET  /v1/affiliate/providers/          -> lista providers (Authorization: Bearer <access>)
+5. GET  /v1/affiliate/providers/<id>/     -> obtiene un provider (Authorization: Bearer <access>)
+6. PUT  /v1/affiliate/providers/<id>/     -> actualiza un provider (Authorization: Bearer <access>)
